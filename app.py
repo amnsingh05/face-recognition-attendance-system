@@ -4,6 +4,9 @@ import bcrypt
 import os
 import cv2
 from datetime import datetime
+import webbrowser
+import threading
+
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # needed for session management
@@ -13,6 +16,13 @@ ATTENDANCE_DIR = "teachers_attendance"
 
 if not os.path.exists(ATTENDANCE_DIR):
     os.makedirs(ATTENDANCE_DIR)
+
+def open_browser():
+    webbrowser.open_new("http://127.0.0.1:5000")
+
+if __name__ == "__main__":
+    threading.Timer(1, open_browser).start()
+    app.run(debug=False)
 
 # ------------------ LOGIN ------------------
 @app.route('/login', methods=['GET', 'POST'])
