@@ -143,5 +143,3 @@ python view_attendance.py
 Aman Singh
 💼 💼 [LinkedIn](https://www.linkedin.com/in/amnsingh0)
 📧 amansinghakr@gamil.com
- (optional)
-💻 Passionate about AI, automation, and open-source development.
