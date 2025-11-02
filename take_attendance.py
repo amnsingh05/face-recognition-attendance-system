@@ -3,22 +3,38 @@ import os
 import datetime
 import pandas as pd
 
+# Paths
+DATASET_DIR = "faces"
+TRAINER_PATH = os.path.join("trainer", "trainer.yml")
 ATTENDANCE_FILE = "attendance.csv"
 
+# Ensure attendance file exists
+if not os.path.exists(ATTENDANCE_FILE):
+    df = pd.DataFrame(columns=["Name", "Date", "Time"])
+    df.to_csv(ATTENDANCE_FILE, index=False)
+
+
 def mark_attendance(name):
-    """Add attendance entry for the detected name."""
+    """Add attendance entry for recognized person"""
     now = datetime.datetime.now()
     date = now.strftime("%Y-%m-%d")
     time = now.strftime("%H:%M:%S")
 
-    # Create file if not exists
+    # Ensure attendance file exists with proper columns
     if not os.path.exists(ATTENDANCE_FILE):
         df = pd.DataFrame(columns=["Name", "Date", "Time"])
         df.to_csv(ATTENDANCE_FILE, index=False)
 
     df = pd.read_csv(ATTENDANCE_FILE)
 
-    # Avoid duplicate marking for the same person on the same date
+    # ✅ If CSV exists but missing required columns — fix it
+    expected_cols = {"Name", "Date", "Time"}
+    if not expected_cols.issubset(df.columns):
+        print("⚠️ Fixing corrupted attendance.csv structure...")
+        df = pd.DataFrame(columns=["Name", "Date", "Time"])
+        df.to_csv(ATTENDANCE_FILE, index=False)
+
+    # Avoid duplicate marking for same day
     if not ((df["Name"] == name) & (df["Date"] == date)).any():
         df.loc[len(df)] = [name, date, time]
         df.to_csv(ATTENDANCE_FILE, index=False)
@@ -28,43 +44,52 @@ def mark_attendance(name):
 
 
 def take_attendance():
-    """Capture QR codes via webcam and mark attendance."""
-    cam = cv2.VideoCapture(0)
-    detector = cv2.QRCodeDetector()
-
-    if not cam.isOpened():
-        print("❌ Camera not accessible.")
+    """Start face recognition attendance"""
+    if not os.path.exists(TRAINER_PATH):
+        print("❌ trainer.yml not found. Run train_model.py first.")
         return
 
-    print("📷 QR Attendance started. Show your QR code to the camera.")
-    print("Press 'q' to quit.")
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer.read(TRAINER_PATH)
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+    # Map numeric labels to folder names (user names)
+    label_dict = {i: name for i, name in enumerate(os.listdir(DATASET_DIR))}
+
+    cam = cv2.VideoCapture(0)
+    if not cam.isOpened():
+        print("❌ Could not access the camera.")
+        return
+
+    print("🎥 Face Attendance started. Press 'q' to quit.\n")
 
     while True:
         ret, frame = cam.read()
         if not ret:
-            print("⚠️ Camera frame not available.")
             break
 
-        data, bbox, _ = detector.detectAndDecode(frame)
-        if bbox is not None:
-            # Draw bounding box around QR code
-            pts = bbox.astype(int).reshape(-1, 2)
-            for j in range(len(pts)):
-                cv2.line(frame, tuple(pts[j]), tuple(pts[(j+1) % len(pts)]), (0, 255, 0), 2)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-        if data:
-            name = data.strip()
-            cv2.putText(frame, f"Detected: {name}", (30, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-            mark_attendance(name)
+        for (x, y, w, h) in faces:
+            id_, confidence = recognizer.predict(gray[y:y+h, x:x+w])
+            name = label_dict.get(id_, "Unknown")
 
-        cv2.imshow("QR Attendance", frame)
+            # Draw rectangle & text
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(frame, f"{name} ({round(confidence, 2)})", (x, y-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+            if confidence < 80 and name != "Unknown":
+                mark_attendance(name)
+
+        cv2.imshow("Face Attendance", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cam.release()
     cv2.destroyAllWindows()
-    print("🟢 Attendance recording stopped.")
+    print("\n🟢 Attendance recording stopped.")
 
 
 if __name__ == "__main__":
