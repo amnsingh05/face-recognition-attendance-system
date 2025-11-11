@@ -1,7 +1,7 @@
 # 🎯 Face Recognition Attendance System
 
 An intelligent **attendance management system** built with Python and OpenCV.  
-It uses **face recognition** to mark attendance automatically — replacing manual sign-in sheets with smart automation.
+It uses **face recognition**, **liveness detection**, and **geofencing (campus-boundary validation)** to mark attendance securely and automatically.
 
 ---
 
@@ -9,40 +9,56 @@ It uses **face recognition** to mark attendance automatically — replacing manu
 
 ✅ **Admin Login System**  
 - Secure admin authentication using CSV-based user storage.  
-- Admin can add new users or change passwords.
+- Admin can add new users, change passwords, and reset credentials.  
 
 ✅ **Face Registration**  
-- Capture and store face samples using a webcam.  
-- Saves faces under `faces/<username>/` for easy retraining.
+- Capture and store multiple face samples using a webcam.  
+- Saves faces under `faces/<username>/` for model retraining.  
 
 ✅ **Model Training**  
-- Trains a face recognition model on all registered users.
+- Trains an OpenCV LBPH model on all registered user faces.  
+- Stores trained data in `trainer/trainer.yml`.  
+
+✅ **Liveness Detection (Anti-Spoofing)**  
+- Uses **CVZone FaceMesh** to detect blinking and eye movement.  
+- Attendance is only marked when a **real, live face** is detected (prevents cheating with photos or videos).  
+- Ensures “live verification” before attendance is saved.  
+
+✅ **Geo-Fenced Attendance (Campus Boundary Check)**  
+- Attendance can only be marked **within the authorized campus area**.  
+- Uses geographic location (latitude, longitude) validation to confirm user is on-site.  
+- Prevents attendance marking from remote or off-campus locations.  
 
 ✅ **Take Attendance**  
-- Recognizes faces live via webcam.  
-- Automatically logs name, date, and time in `attendance.csv`.
+- Recognizes faces in real time using webcam feed.  
+- Marks attendance only if both **liveness** and **location checks** pass.  
+- Stores results in `attendance/attendance_YYYY-MM-DD.csv`.
 
 ✅ **View Attendance**  
-- View and export attendance records directly from the dashboard.
+- View daily or historical attendance directly from the admin dashboard.  
+- Export data to CSV/Excel.
 
 ---
 
 ## 🏗️ Project Structure
 
+```
 face_recognition_attendance/
 │
-├── admin_dashboard.py # Admin dashboard for all core features
-├── login_gui.py # Login page for admin access
-├── admin_utils.py # Handles authentication & password management
-├── register_face.py # Captures and saves user face images
-├── train_model.py # Trains the recognition model
-├── take_attendance.py # Recognizes faces & records attendance
-├── view_attendance.py # Displays attendance records
+├── admin_dashboard.py        # Admin dashboard for all core features
+├── login_gui.py              # Login page for admin access
+├── admin_utils.py            # Handles authentication & password management
+├── register_face.py          # Captures and saves user face images
+├── train_model.py            # Trains the face recognition model
+├── take_attendance.py        # Recognizes faces & records attendance
+├── view_attendance.py        # Displays attendance records
+├── liveness_check.py         # Detects blinking / liveness (anti-spoofing)
+├── location_utils.py         # Verifies geographic boundaries (campus check)
 │
-├── users.csv # Stores admin credentials & security answers
-├── attendance.csv # Attendance logs (Name, Date, Time)
-└── faces/ # Directory containing face samples
-
+├── users.csv                 # Stores admin credentials
+├── attendance/               # Folder containing daily attendance CSVs
+└── faces/                    # Directory with face samples
+```
 
 ---
 
@@ -50,103 +66,102 @@ face_recognition_attendance/
 
 ### 1️⃣ Clone the Repository
 ```bash
-git clone https://github.com/<amnsingh05>/<face-recognition-attendace-system>.git
+git clone https://github.com/amnsingh05/face-recognition-attendance-system.git
 cd face_recognition_attendance
+```
 
-2️⃣ Install Dependencies
+### 2️⃣ Install Dependencies
+Make sure Python 3.8+ is installed. Then run:
+```bash
+pip install opencv-python pandas numpy cvzone geopy
+```
 
-Make sure Python 3.8+ is installed. Then, install the required libraries:
+💡 *No need for dlib — this system is designed to work without it!*
 
-pip install opencv-python pandas numpy
+---
 
+## 🚀 Usage Guide
 
-💡 No need for dlib — this system is designed to work without it!
-
-🚀 Usage Guide
-🧑‍💻 Step 1: Run the Admin Login
+### 🧑‍💻 Step 1: Run the Admin Login
+```bash
 python login_gui.py
-
-
-Default credentials (you can change them later):
-
+```
+Default credentials:
+```
 Username: admin
-
 Password: 1234
+```
 
-🧍 Step 2: Register a New Face
+### 🧍 Step 2: Register Faces
+- Click **“Register New Face”** and enter a username.  
+- The system captures 30 face samples automatically.
 
-Click “Register New Face”
+### ⚙️ Step 3: Train the Model
+Click **“Train Model”** to update the trained dataset.
 
-Enter your name when prompted.
+### 🕵️ Step 4: Take Attendance
+- Click **“Take Attendance”**.  
+- System checks:
+  1. Live face detection (blink/eye movement).  
+  2. Geo-location inside campus.  
+  3. Face match confidence.  
+- Only after passing all checks, attendance is recorded.
 
-The system captures 30 face samples via webcam.
+### 📋 Step 5: View Attendance
+Click **“View Attendance”** to view or export all attendance logs.
 
-⚙️ Step 3: Train the Model
+---
 
-Click “Train Model” after registration to update the recognition model.
+## 🗺️ Example Geo-Fencing Configuration
+Campus boundary (example):
+```python
+CAMPUS_CENTER = (28.6139, 77.2090)  # Example: Delhi coordinates
+RADIUS_METERS = 100  # Attendance allowed within 100 meters
+```
 
-🕵️ Step 4: Take Attendance
+If the device location is outside this radius, attendance will not be marked.
 
-Click “Take Attendance”
+---
 
-The camera will detect faces and automatically mark attendance in attendance.csv.
+## 🧠 Technologies Used
 
-📋 Step 5: View Attendance
+| Component | Technology |
+|------------|-------------|
+| GUI | Tkinter |
+| Face Detection | OpenCV (Haar Cascade + LBPH) |
+| Liveness Detection | CVZone (FaceMesh Eye Blink) |
+| Geo-Fencing | Geopy (Distance Validation) |
+| Data Storage | CSV (via Pandas) |
+| Language | Python 3 |
 
-Click “View Attendance” to see all attendance logs.
+---
 
-🗂️ Example Attendance Record
-Name	Date	Time
-Aman	2025-11-02	09:42:10
-Rahul	2025-11-02	09:45:12
-Neha	2025-11-03	10:05:21
-
-All attendance data is saved in attendance.csv automatically.
-
-🧠 Technologies Used
-Component	Technology
-GUI	Tkinter
-Face Detection	OpenCV (Haar Cascade Classifier)
-Data Storage	CSV (Pandas)
-Language	Python 3
-📦 Dependencies
-
-Install all dependencies using:
-
-pip install -r requirements.txt
-
-
-If you don’t have a requirements.txt yet, you can create one with:
-
+## 📦 Dependencies
+```
 opencv-python
 pandas
 numpy
+cvzone
+geopy
+```
 
-🧑‍🏫 Example Command Line Usage
+Install all dependencies with:
+```bash
+pip install -r requirements.txt
+```
 
-To quickly register a face without GUI:
+---
 
-python register_face.py
+## 🧑‍💻 Authors
 
+**Aaryan Sharma**  
+💼 [LinkedIn](https://www.linkedin.com/in/aaryan-sharma-a341a732b/)  
+📧 aaryansharma90898@gmail.com  
 
-To take attendance directly:
+**Aksh Jain**  
+💼 [LinkedIn](https://www.linkedin.com/in/aksh-jain-58a705203/)  
+📧 akshjainha@gmail.com  
 
-python take_attendance.py
-
-
-To view attendance:
-
-python view_attendance.py
-
-🧑‍💻 Author:
-Aaryan Sharma
-💼 [LinkedIn](https://www.linkedin.com/in/aaryan-sharma-a341a732b/)
-📧 aaryansharma90898@gamil.com
-
-Aksh Jain 
-💼 [LinkedIn](https://www.linkedin.com/in/aksh-jain-58a705203/)
-📧 akshjainha@gmail.com
-
-Aman Singh
-💼 [LinkedIn](https://www.linkedin.com/in/amnsingh0)
-📧 amansinghakr@gamil.com
+**Aman Singh**  
+💼 [LinkedIn](https://www.linkedin.com/in/amnsingh0)  
+📧 amansinghakr@gmail.com  
